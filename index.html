@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Watchdog">
+<meta name="theme-color" content="#0a0c10">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Investment Watchdog</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap');
+  :root {
+    --bg: #0a0c10; --surface: #111318; --surface2: #191c24;
+    --border: #252830; --accent: #00e5a0; --accent2: #ff4d6d;
+    --accent3: #ffd166; --text: #e8eaf0; --muted: #5a6070;
+    --glow: 0 0 20px rgba(0,229,160,0.25);
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overscroll-behavior: none; }
+  body { font-family: 'Syne', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
+  body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(0,229,160,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,160,0.03) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0; }
+  .topbar { position: sticky; top: 0; z-index: 100; background: rgba(10,12,16,0.92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); padding: 14px 20px 12px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar-left { display: flex; flex-direction: column; gap: 2px; }
+  .topbar-title { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
+  .topbar-title span { color: var(--accent); }
+  .topbar-sub { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--muted); }
+  .topbar-right { display: flex; align-items: center; gap: 10px; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); transition: all 0.3s; flex-shrink: 0; }
+  .status-dot.active { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse 2s infinite; }
+  .status-dot.loading { background: var(--accent3); box-shadow: 0 0 8px var(--accent3); animation: pulse 0.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .btn-topbar { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; color: var(--text); font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 5px; }
+  .btn-topbar:active { opacity: 0.7; transform: scale(0.97); }
+  .btn-topbar:disabled { opacity: 0.35; }
+  .spin { display:inline-block; animation: spin 1s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .scroll-area { position: relative; z-index: 1; padding: 16px 16px 120px; }
+  .summary { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 18px; }
+  .sum-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 12px; }
+  .sum-lbl { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); font-family: 'Space Mono', monospace; margin-bottom: 6px; }
+  .sum-val { font-family: 'Space Mono', monospace; font-size: 26px; font-weight: 700; }
+  .sum-val.g { color: var(--accent); } .sum-val.y { color: var(--accent3); } .sum-val.r { color: var(--accent2); }
+  .fab { position: fixed; bottom: calc(24px + var(--safe-bottom)); right: 20px; z-index: 200; width: 56px; height: 56px; border-radius: 28px; background: var(--accent); border: none; color: #000; font-size: 26px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 24px rgba(0,229,160,0.45); transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+  .fab:active { transform: scale(0.93); }
+  .sheet-overlay { position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,0.6); opacity: 0; pointer-events: none; transition: opacity 0.3s; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+  .sheet-overlay.open { opacity: 1; pointer-events: all; }
+  .sheet { position: fixed; bottom: 0; left: 0; right: 0; z-index: 400; background: var(--surface); border-top: 1px solid var(--border); border-radius: 20px 20px 0 0; padding: 0 20px calc(20px + var(--safe-bottom)); transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.32,0.72,0,1); max-height: 92vh; overflow-y: auto; }
+  .sheet.open { transform: translateY(0); }
+  .sheet-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto 20px; }
+  .sheet-title { font-size: 17px; font-weight: 800; margin-bottom: 20px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 10px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; font-family: 'Space Mono', monospace; }
+  .field input, .field select { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; color: var(--text); font-family: 'Space Mono', monospace; font-size: 15px; outline: none; transition: border-color 0.2s; -webkit-appearance: none; appearance: none; }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .field input::placeholder { color: var(--muted); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .btn-confirm { width: 100%; background: var(--accent); color: #000; border: none; border-radius: 12px; padding: 16px; font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 800; cursor: pointer; margin-top: 8px; transition: all 0.2s; }
+  .btn-confirm:active { opacity: 0.8; transform: scale(0.98); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 12px; position: relative; overflow: hidden; transition: border-color 0.3s; }
+  .card::before { content:''; position:absolute; left:0;top:0;bottom:0;width:3px; background:var(--accent); opacity:0.4; transition:all 0.3s; }
+  .card.warn::before { background:var(--accent3); opacity:1; }
+  .card.fired { border-color:var(--accent2); animation: flashCard 0.6s ease 3; }
+  .card.fired::before { background:var(--accent2); opacity:1; }
+  @keyframes flashCard { 0%,100%{box-shadow:none} 50%{box-shadow:0 0 28px rgba(255,77,109,0.35)} }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+  .card-sym { font-family: 'Space Mono', monospace; font-size: 17px; font-weight: 700; }
+  .card-sym small { display:block;font-size:10px;color:var(--muted);font-weight:400;margin-top:3px;letter-spacing:1px; }
+  .card-price { text-align: right; }
+  .price-lbl { font-size: 10px; color: var(--muted); font-family: 'Space Mono', monospace; }
+  .price-val { font-family: 'Space Mono', monospace; font-size: 20px; font-weight: 700; }
+  .price-chg { font-family: 'Space Mono', monospace; font-size: 11px; margin-top: 2px; }
+  .price-chg.up{color:var(--accent)} .price-chg.down{color:var(--accent2)}
+  .price-loading { font-family:'Space Mono',monospace; font-size:12px; color:var(--muted); }
+  .price-err { font-family:'Space Mono',monospace; font-size:11px; color:var(--accent2); }
+  .card-mid { margin-bottom: 12px; }
+  .alert-row { display:flex; justify-content:space-between; font-size:10px; color:var(--muted); font-family:'Space Mono',monospace; margin-bottom:6px; }
+  .alert-row b { color:var(--text); }
+  .progress-track { height:5px; background:var(--surface2); border-radius:3px; overflow:hidden; }
+  .progress-fill { height:100%; border-radius:3px; background:var(--accent); transition:width 0.6s ease,background 0.3s; }
+  .progress-fill.warn{background:var(--accent3)} .progress-fill.danger{background:var(--accent2)}
+  .margin-txt { font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;margin-top:5px; }
+  .card-bot { display:flex; align-items:center; justify-content:space-between; }
+  .status-chip { font-size:11px;font-family:'Space Mono',monospace;padding:5px 12px;border-radius:20px; }
+  .chip-ok{background:rgba(0,229,160,0.1);color:var(--accent);border:1px solid rgba(0,229,160,0.2)}
+  .chip-warn{background:rgba(255,209,102,0.1);color:var(--accent3);border:1px solid rgba(255,209,102,0.2)}
+  .chip-fired{background:rgba(255,77,109,0.15);color:var(--accent2);border:1px solid rgba(255,77,109,0.3);animation:pulse 1s infinite}
+  .chip-loading{background:rgba(90,96,112,0.2);color:var(--muted);border:1px solid var(--border)}
+  .card-actions { display:flex; gap:8px; }
+  .btn-ic { background:transparent;border:1px solid var(--border);border-radius:8px;padding:7px 11px;color:var(--muted);cursor:pointer;font-size:14px;transition:all 0.2s; }
+  .btn-ic:active{transform:scale(0.93)}
+  .settings-row { display:flex;align-items:center;gap:10px; background:var(--surface);border:1px solid var(--border); border-radius:12px;padding:12px 14px;margin-bottom:16px;flex-wrap:wrap; }
+  .settings-row label{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);white-space:nowrap;}
+  .settings-row select{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text);font-family:'Space Mono',monospace;font-size:11px;outline:none;cursor:pointer;-webkit-appearance:none;}
+  .settings-row .sep{color:var(--border);font-size:18px;}
+  .api-badges{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;}
+  .api-badge{display:flex;align-items:center;gap:5px;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);}
+  .dot{width:5px;height:5px;border-radius:50%;} .dot-g{background:var(--accent)} .dot-b{background:#60a5fa}
+  .empty{text-align:center;padding:50px 20px;color:var(--muted);border:1px dashed var(--border);border-radius:16px;}
+  .empty .ico{font-size:40px;margin-bottom:10px;}
+  .empty p{font-size:14px;line-height:1.5;}
+  .notif-area{position:fixed;top:calc(var(--safe-top) + 10px);right:12px;left:12px;z-index:600;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+  .notif{background:#130a0e;border:1px solid var(--accent2);border-radius:14px;padding:14px 16px;box-shadow:0 0 28px rgba(255,77,109,0.25);animation:slideDown 0.3s ease;display:flex;gap:12px;align-items:flex-start;pointer-events:all;}
+  .notif.info{border-color:var(--accent);background:#081310;box-shadow:0 0 20px rgba(0,229,160,0.15);}
+  .notif.warn-notif{border-color:var(--accent3);background:#130f04;}
+  @keyframes slideDown{from{transform:translateY(-20px);opacity:0}to{transform:translateY(0);opacity:1}}
+  .notif-ico{font-size:20px;flex-shrink:0;margin-top:1px;}
+  .notif-title{font-weight:700;font-size:13px;color:var(--accent2);margin-bottom:2px;}
+  .notif.info .notif-title{color:var(--accent)} .notif.warn-notif .notif-title{color:var(--accent3)}
+  .notif-body{font-size:11px;color:var(--muted);font-family:'Space Mono',monospace;line-height:1.5;}
+  .notif-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;margin-left:auto;flex-shrink:0;padding:0 0 0 8px;}
+  .install-banner{display:none;background:linear-gradient(135deg,rgba(0,229,160,0.12),rgba(0,229,160,0.05));border:1px solid rgba(0,229,160,0.25);border-radius:14px;padding:14px 16px;margin-bottom:16px;align-items:center;gap:12px;}
+  .install-banner.show{display:flex;}
+  .install-banner p{font-size:13px;color:var(--text);flex:1;line-height:1.4;}
+  .install-banner p span{color:var(--accent);font-weight:700;}
+  .btn-install{background:var(--accent);color:#000;border:none;border-radius:8px;padding:9px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+  .btn-dismiss{background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;padding:0;flex-shrink:0;}
+</style>
+</head>
+<body>
+<div class="notif-area" id="notifications"></div>
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="topbar-title">INVEST <span>WATCHDOG</span></div>
+    <div class="topbar-sub" id="last-update">Sin datos aún</div>
+  </div>
+  <div class="topbar-right">
+    <div class="status-dot" id="sdot"></div>
+    <button class="btn-topbar" id="refresh-btn" onclick="refreshAll()">↻</button>
+  </div>
+</div>
+<div class="scroll-area">
+  <div class="install-banner" id="install-banner">
+    <div>📲</div>
+    <p>Instala <span>Watchdog</span> en tu pantalla de inicio para usarla como app</p>
+    <button class="btn-install" id="btn-install-pwa">Instalar</button>
+    <button class="btn-dismiss" onclick="dismissInstall()">✕</button>
+  </div>
+  <div class="summary">
+    <div class="sum-card"><div class="sum-lbl">Activos</div><div class="sum-val" id="sum-total">0</div></div>
+    <div class="sum-card"><div class="sum-lbl">Alertas</div><div class="sum-val y" id="sum-alerts">0</div></div>
+    <div class="sum-card"><div class="sum-lbl">Disparadas</div><div class="sum-val r" id="sum-fired">0</div></div>
+  </div>
+  <div class="settings-row">
+    <label>Actualizar cada</label>
+    <select id="interval-sel" onchange="changeInterval()">
+      <option value="30">30s</option>
+      <option value="60" selected>1 min</option>
+      <option value="300">5 min</option>
+      <option value="600">10 min</option>
+    </select>
+    <span class="sep">|</span>
+    <div class="api-badges">
+      <div class="api-badge"><div class="dot dot-b"></div>Yahoo Finance</div>
+      <div class="api-badge"><div class="dot dot-g"></div>CoinGecko</div>
+    </div>
+  </div>
+  <div id="inv-list"></div>
+</div>
+<button class="fab" onclick="openSheet()">+</button>
+<div class="sheet-overlay" id="sheet-overlay" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">Agregar activo</div>
+  <div class="field">
+    <label>Símbolo</label>
+    <input id="f-sym" type="text" placeholder="AAPL, BTC, ETH, TSLA…" autocomplete="off" autocapitalize="characters">
+  </div>
+  <div class="row2">
+    <div class="field">
+      <label>Precio compra ($)</label>
+      <input id="f-buy" type="number" placeholder="150.00" step="0.01" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>% alerta caída</label>
+      <input id="f-pct" type="number" placeholder="10" step="0.1" inputmode="decimal">
+    </div>
+  </div>
+  <div class="field">
+    <label>Tipo de activo</label>
+    <select id="f-type">
+      <option value="stock">📊 Acción / ETF</option>
+      <option value="crypto">₿ Cripto</option>
+    </select>
+  </div>
+  <button class="btn-confirm" onclick="addInvestment()">Agregar activo</button>
+</div>
+<script>
+if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(()=>{}); }
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; if (!localStorage.getItem('iwdog_dismissed')) { document.getElementById('install-banner').classList.add('show'); } });
+document.getElementById('btn-install-pwa').addEventListener('click', async () => { if (!deferredPrompt) return; deferredPrompt.prompt(); const { outcome } = await deferredPrompt.userChoice; if (outcome === 'accepted') { document.getElementById('install-banner').classList.remove('show'); notify('📲','¡App instalada!','Puedes abrirla desde tu pantalla de inicio.','info'); } deferredPrompt = null; });
+function dismissInstall() { document.getElementById('install-banner').classList.remove('show'); localStorage.setItem('iwdog_dismissed','1'); }
+window.addEventListener('appinstalled', () => { document.getElementById('install-banner').classList.remove('show'); });
+let investments = JSON.parse(localStorage.getItem('iwdog_inv') || '[]');
+let firedToday = parseInt(localStorage.getItem('iwdog_fired') || '0');
+let monTimer = null, isLoading = false;
+function openSheet() { document.getElementById('sheet').classList.add('open'); document.getElementById('sheet-overlay').classList.add('open'); setTimeout(() => document.getElementById('f-sym').focus(), 350); }
+function closeSheet() { document.getElementById('sheet').classList.remove('open'); document.getElementById('sheet-overlay').classList.remove('open'); }
+const GECKO_IDS = { BTC:'bitcoin',ETH:'ethereum',BNB:'binancecoin',SOL:'solana',ADA:'cardano',XRP:'ripple',DOGE:'dogecoin',DOT:'polkadot',AVAX:'avalanche-2',MATIC:'matic-network',LINK:'chainlink',UNI:'uniswap',ATOM:'cosmos',LTC:'litecoin',BCH:'bitcoin-cash',NEAR:'near',APT:'aptos',ARB:'arbitrum',OP:'optimism',SHIB:'shiba-inu',PEPE:'pepe',TON:'the-open-network',SUI:'sui',INJ:'injective-protocol',TIA:'celestia' };
+function geckoId(s){ return GECKO_IDS[s.toUpperCase()] || s.toLowerCase(); }
+async function fetchCrypto(symbol) { const id=geckoId(symbol); const r=await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd&include_24hr_change=true`); if(!r.ok) throw new Error(`CoinGecko ${r.status}`); const d=await r.json(); const e=d[id]; if(!e) throw new Error(`No encontrado: ${symbol}`); return {price:e.usd,change24h:e.usd_24h_change||0}; }
+async function fetchStock(symbol) { const enc=encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol.toUpperCase()}?range=1d&interval=1m`); const r=await fetch(`https://api.allorigins.win/get?url=${enc}`); if(!r.ok) throw new Error(`Proxy ${r.status}`); const w=await r.json(); const data=JSON.parse(w.contents); const res=data?.chart?.result?.[0]; if(!res) throw new Error(`Sin datos: ${symbol}`); const m=res.meta; const price=m.regularMarketPrice||m.previousClose; const prev=m.chartPreviousClose||m.previousClose; return {price,change24h:prev?((price-prev)/prev)*100:0}; }
+async function fetchPrice(inv) { return inv.type==='crypto'?fetchCrypto(inv.symbol):fetchStock(inv.symbol); }
+function addInvestment() { const sym=document.getElementById('f-sym').value.trim(); const buy=parseFloat(document.getElementById('f-buy').value); const pct=parseFloat(document.getElementById('f-pct').value); const type=document.getElementById('f-type').value; if(!sym||isNaN(buy)||isNaN(pct)||buy<=0||pct<=0){notify('⚠️','Campos incompletos','Completa todos los campos.','warn-notif');return;} investments.push({id:Date.now(),symbol:sym.toUpperCase(),type,buyPrice:buy,alertPct:pct,alertPrice:buy*(1-pct/100),currentPrice:null,change24h:null,fired:false,error:null,addedAt:new Date().toLocaleDateString('es-MX')}); save();render();closeSheet(); ['f-sym','f-buy','f-pct'].forEach(id=>document.getElementById(id).value=''); startMonitor();refreshAll(); }
+async function refreshAll() { if(!investments.length||isLoading)return; isLoading=true;setRefreshBtn(true);setDot('loading'); const results=await Promise.allSettled(investments.map(inv=>fetchPrice(inv))); results.forEach((res,i)=>{ const inv=investments[i]; if(res.status==='fulfilled'){inv.currentPrice=res.value.price;inv.change24h=res.value.change24h;inv.error=null; if(!inv.fired&&inv.currentPrice<=inv.alertPrice){inv.fired=true;firedToday++;localStorage.setItem('iwdog_fired',firedToday);triggerAlert(inv);} }else{inv.error=res.reason?.message||'Error';} }); save();render(); const n=new Date(); document.getElementById('last-update').textContent=`${n.getHours()}:${String(n.getMinutes()).padStart(2,'0')}:${String(n.getSeconds()).padStart(2,'0')}`; isLoading=false;setRefreshBtn(false);setDot('active'); }
+function triggerAlert(inv) { const drop=((inv.currentPrice-inv.buyPrice)/inv.buyPrice*100).toFixed(2); notify('🚨',`¡ALERTA! ${inv.symbol}`,`Cayó ${Math.abs(drop)}%\nPrecio: $${fmt(inv.currentPrice)}\nUmbral: $${fmt(inv.alertPrice)}`,'danger'); if(Notification.permission==='granted') new Notification(`🚨 ${inv.symbol} bajó ${Math.abs(drop)}%`,{body:`Precio: $${fmt(inv.currentPrice)}`}); beep(); }
+function beep(){try{const ctx=new(window.AudioContext||window.webkitAudioContext)();[[880,0],[660,0.15],[880,0.3]].forEach(([f,t])=>{const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=f;o.type='sine';g.gain.setValueAtTime(0.3,ctx.currentTime+t);g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+t+0.18);o.start(ctx.currentTime+t);o.stop(ctx.currentTime+t+0.18);});}catch(e){}}
+function deleteInvestment(id){investments=investments.filter(i=>i.id!==id);save();render();if(!investments.length){clearInterval(monTimer);monTimer=null;setDot('off');document.getElementById('last-update').textContent='Sin datos aún';}}
+function resetAlert(id){const inv=investments.find(i=>i.id===id);if(inv){inv.fired=false;save();render();}}
+function startMonitor(){if(monTimer)return;const secs=parseInt(document.getElementById('interval-sel').value);monTimer=setInterval(refreshAll,secs*1000);if(Notification.permission==='default')Notification.requestPermission();}
+function changeInterval(){if(monTimer){clearInterval(monTimer);monTimer=null;startMonitor();}}
+function fmt(n){if(n===null||n===undefined)return'—';if(n>=1000)return n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});if(n>=1)return n.toFixed(2);return n.toFixed(6);}
+function render(){const list=document.getElementById('inv-list');document.getElementById('sum-total').textContent=investments.length;document.getElementById('sum-alerts').textContent=investments.filter(i=>!i.fired).length;document.getElementById('sum-fired').textContent=firedToday;if(!investments.length){list.innerHTML=`<div class="empty"><div class="ico">📈</div><p>Toca <b>+</b> para agregar tu primer activo</p></div>`;return;}list.innerHTML=investments.map(inv=>{const has=inv.currentPrice!==null;const chg=has?((inv.currentPrice-inv.buyPrice)/inv.buyPrice*100):null;const distRaw=has?((inv.currentPrice-inv.alertPrice)/(inv.buyPrice-inv.alertPrice))*100:100;const dist=Math.max(0,Math.min(100,distRaw));const barCls=dist<20?'danger':dist<50?'warn':'';const cardCls=inv.fired?'fired':(dist<50&&has?'warn':'');let chip;if(!has&&!inv.error)chip=`<span class="status-chip chip-loading">⏳ Cargando</span>`;else if(inv.error)chip=`<span class="status-chip chip-warn">⚠ Error</span>`;else if(inv.fired)chip=`<span class="status-chip chip-fired">🚨 DISPARADA</span>`;else if(dist<50)chip=`<span class="status-chip chip-warn">⚠ CERCA</span>`;else chip=`<span class="status-chip chip-ok">✓ OK</span>`;let priceBlock;if(inv.error)priceBlock=`<div class="price-lbl">Precio</div><div class="price-err">${inv.error}</div>`;else if(!has)priceBlock=`<div class="price-lbl">Precio</div><div class="price-loading">Obteniendo…</div>`;else priceBlock=`<div class="price-lbl">Precio actual</div><div class="price-val">$${fmt(inv.currentPrice)}</div><div class="price-chg ${chg>=0?'up':'down'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}% vs compra</div>`;const margin=has?Math.max(0,(chg??0)+inv.alertPct).toFixed(2):'—';return`<div class="card ${cardCls}"><div class="card-top"><div class="card-sym">${inv.type==='crypto'?'₿':'📊'} ${inv.symbol}<small>${inv.type.toUpperCase()} · ${inv.addedAt}</small></div><div class="card-price">${priceBlock}</div></div><div class="card-mid"><div class="alert-row"><span>Umbral: <b>$${fmt(inv.alertPrice)}</b></span><span>−${inv.alertPct}%</span></div><div class="progress-track"><div class="progress-fill ${barCls}" style="width:${dist}%"></div></div><div class="margin-txt">Margen restante: ${margin}%</div></div><div class="card-bot">${chip}<div class="card-actions">${inv.fired?`<button class="btn-ic reset" onclick="resetAlert(${inv.id})">↺</button>`:''}<button class="btn-ic" onclick="deleteInvestment(${inv.id})">✕</button></div></div></div>`;}).join('');}
+function save(){localStorage.setItem('iwdog_inv',JSON.stringify(investments));}
+function setDot(s){const d=document.getElementById('sdot');d.className='status-dot';if(s==='active')d.classList.add('active');if(s==='loading')d.classList.add('loading');}
+function setRefreshBtn(l){const b=document.getElementById('refresh-btn');b.disabled=l;b.innerHTML=l?'<span class="spin">↻</span>':'↻';}
+function notify(icon,title,body,type='danger'){const a=document.getElementById('notifications');const el=document.createElement('div');el.className=`notif ${type}`;el.innerHTML=`<div class="notif-ico">${icon}</div><div><div class="notif-title">${title}</div><div class="notif-body">${body.replace(/\n/g,'<br>')}</div></div><button class="notif-close" onclick="this.parentElement.remove()">✕</button>`;a.prepend(el);setTimeout(()=>el.remove?.(),9000);}
+render();
+if(investments.length>0){startMonitor();refreshAll();}
+</script>
+</body>
+</html>
